@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
+import 'login.dart'; // Import file login.dart agar bisa dikenali
 
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
@@ -55,8 +56,12 @@ class _OnboardingScreenState extends State<OnboardingScreen>
         curve: Curves.easeInOut,
       );
     } else {
-      // Jika sudah di slide terakhir, kembali ke root atau pindah ke Login/Home
-      Navigator.of(context).popUntil((r) => r.isFirst);
+      // Navigasi ke LoginScreen menggunakan pushReplacement agar
+      // user tidak bisa kembali ke onboarding dengan tombol 'back'
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => const LoginScreen()),
+      );
     }
   }
 
@@ -85,13 +90,19 @@ class _OnboardingScreenState extends State<OnboardingScreen>
               child: Column(
                 children: [
                   _PrimaryBtn(
-                    text: _currentPage == 2 ? 'Get Started' : 'Get Started',
+                    text: _currentPage == 2 ? 'Get Started' : ' Get Started',
                     onTap: _handleNext,
                   ),
                   const SizedBox(height: 12),
                   GestureDetector(
                     onTap: () {
-                      // Logika untuk pindah ke screen login
+                      // Navigasi ke LoginScreen saat teks ini ditekan
+                      Navigator.pushReplacement(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const LoginScreen(),
+                        ),
+                      );
                     },
                     child: const Padding(
                       padding: EdgeInsets.all(8),
@@ -253,7 +264,6 @@ class _MapIllustration extends StatelessWidget {
             ),
           ),
           const Icon(Icons.map_outlined, size: 180, color: AppColors.divider),
-          // Tambahkan pin atau avatar di sini sesuai kebutuhan UI
         ],
       ),
     );
