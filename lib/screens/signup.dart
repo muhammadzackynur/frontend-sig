@@ -1,8 +1,109 @@
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 import 'login.dart'; // Import login.dart untuk menggunakan FindUsColors & Shared Widgets
 
-class SignUpScreen extends StatelessWidget {
+class SignUpScreen extends StatefulWidget {
   const SignUpScreen({super.key});
+
+  @override
+  State<SignUpScreen> createState() => _SignUpScreenState();
+}
+
+class _SignUpScreenState extends State<SignUpScreen> {
+  // 1. Inisialisasi Controller untuk menangkap input teks
+  final TextEditingController nameController = TextEditingController();
+  final TextEditingController emailController = TextEditingController();
+  final TextEditingController phoneController = TextEditingController();
+  final TextEditingController passwordController = TextEditingController();
+  final TextEditingController confirmPasswordController =
+      TextEditingController();
+
+  bool isLoading = false;
+
+  // 2. Fungsi untuk mengirim data ke API Laravel
+  Future<void> register() async {
+    // Validasi apakah password dan konfirmasi password cocok
+    if (passwordController.text != confirmPasswordController.text) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Password dan Confirm Password tidak cocok!'),
+        ),
+      );
+      return;
+    }
+
+    setState(() {
+      isLoading = true;
+    });
+
+    try {
+      // Gunakan 10.0.2.2 jika menggunakan emulator Android
+      final response = await http.post(
+        Uri.parse('http://192.168.1.10/findus-backend/public/api/register'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json', // <-- TAMBAHKAN BARIS INI
+        },
+        body: jsonEncode({
+          'name': nameController.text,
+          'email': emailController.text,
+          'password': passwordController.text,
+          'phone': phoneController
+              .text, // Hapus komentar ini jika backend Anda juga menerima input nomor HP
+        }),
+      );
+
+      final data = jsonDecode(response.body);
+
+      if (response.statusCode == 200 && data['status'] == 'success') {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Registrasi Berhasil! Silakan Log In.')),
+        );
+
+        // Pindah ke halaman Login setelah berhasil
+        Navigator.pushReplacement(
+          context,
+          PageRouteBuilder(
+            pageBuilder: (context, a1, a2) => const LoginScreen(),
+            transitionDuration: Duration.zero,
+          ),
+        );
+      } else {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Gagal: ${data['message'] ?? 'Periksa kembali data Anda'}',
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Terjadi kesalahan koneksi server.')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          isLoading = false;
+        });
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    // Bersihkan controller saat widget dihancurkan untuk menghindari memory leak
+    nameController.dispose();
+    emailController.dispose();
+    phoneController.dispose();
+    passwordController.dispose();
+    confirmPasswordController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -109,29 +210,34 @@ class SignUpScreen extends StatelessWidget {
 
                   const SizedBox(height: 32),
 
-                  // 5. Form Sign Up
-                  const AuthField(
+                  // 5. Form Sign Up (Ditambahkan parameter controller)
+                  AuthField(
+                    controller: nameController,
                     icon: Icons.person_outline,
                     label: 'Full Name',
                   ),
                   const SizedBox(height: 16),
-                  const AuthField(
+                  AuthField(
+                    controller: emailController,
                     icon: Icons.email_outlined,
                     label: 'Email address',
                   ),
                   const SizedBox(height: 16),
-                  const AuthField(
+                  AuthField(
+                    controller: phoneController,
                     icon: Icons.phone_android_outlined,
                     label: 'Phone Number',
                   ),
                   const SizedBox(height: 16),
-                  const AuthField(
+                  AuthField(
+                    controller: passwordController,
                     icon: Icons.lock_outline,
                     label: 'Password',
                     isPassword: true,
                   ),
                   const SizedBox(height: 16),
-                  const AuthField(
+                  AuthField(
+                    controller: confirmPasswordController,
                     icon: Icons.lock_outline,
                     label: 'Confirm Password',
                     isPassword: true,
@@ -146,7 +252,14 @@ class SignUpScreen extends StatelessWidget {
                   ),
 
                   const SizedBox(height: 24),
-                  PrimaryBtn(label: 'Create Account', onTap: () {}),
+
+                  // Tombol dengan indikator loading
+                  isLoading
+                      ? const Center(child: CircularProgressIndicator())
+                      : PrimaryBtn(
+                          label: 'Create Account',
+                          onTap: register, // Panggil fungsi register
+                        ),
 
                   const SizedBox(height: 32),
 

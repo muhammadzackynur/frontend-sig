@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
-import 'signup.dart'; // Import file signup.dart
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+import 'signup.dart';
+import 'home_screen.dart'; // Pastikan file ini sudah dibuat
 
 // --- Konstanta Warna Tema ---
 class FindUsColors {
@@ -11,8 +14,90 @@ class FindUsColors {
   static const Color textMuted = Color(0xFF9E9181);
 }
 
-class LoginScreen extends StatelessWidget {
+class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
+
+  @override
+  State<LoginScreen> createState() => _LoginScreenState();
+}
+
+class _LoginScreenState extends State<LoginScreen> {
+  // 1. Controller untuk input form
+  final TextEditingController emailController = TextEditingController();
+  final TextEditingController passwordController = TextEditingController();
+
+  bool isLoading = false;
+
+  // 2. Fungsi untuk memanggil API Login Laravel
+  Future<void> login() async {
+    // Validasi dasar
+    if (emailController.text.isEmpty || passwordController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Email dan Password tidak boleh kosong')),
+      );
+      return;
+    }
+
+    setState(() {
+      isLoading = true;
+    });
+
+    try {
+      // Menggunakan URL Laragon sesuai percobaan terakhir yang berhasil
+      final response = await http.post(
+        Uri.parse('http://192.168.1.10/findus-backend/public/api/login'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: jsonEncode({
+          'email': emailController.text,
+          'password': passwordController.text,
+        }),
+      );
+
+      final data = jsonDecode(response.body);
+
+      if (response.statusCode == 200 && data['status'] == 'success') {
+        if (!mounted) return;
+
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Login Berhasil!')));
+
+        // Berpindah ke HomeScreen dan menghapus tumpukan navigasi (User tidak bisa back ke login)
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const HomeScreen()),
+        );
+      } else {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(data['message'] ?? 'Email atau password salah!'),
+          ),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Terjadi kesalahan koneksi server.')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          isLoading = false;
+        });
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    emailController.dispose();
+    passwordController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -21,7 +106,7 @@ class LoginScreen extends StatelessWidget {
       body: SingleChildScrollView(
         child: Column(
           children: [
-            // 1. Header Melengkung (Hanya ada di Login)
+            // 1. Header Melengkung
             ClipPath(
               clipper: HeaderWaveClipper(),
               child: Container(
@@ -85,7 +170,6 @@ class LoginScreen extends StatelessWidget {
                           label: 'Sign Up',
                           isActive: false,
                           onTap: () {
-                            // Pindah ke Sign Up tanpa animasi agar terlihat seperti ganti tab
                             Navigator.pushReplacement(
                               context,
                               PageRouteBuilder(
@@ -104,12 +188,14 @@ class LoginScreen extends StatelessWidget {
                   const SizedBox(height: 32),
 
                   // 4. Form Login
-                  const AuthField(
+                  AuthField(
+                    controller: emailController,
                     icon: Icons.email_outlined,
                     label: 'Email address',
                   ),
                   const SizedBox(height: 16),
-                  const AuthField(
+                  AuthField(
+                    controller: passwordController,
                     icon: Icons.lock_outline,
                     label: 'Password',
                     isPassword: true,
@@ -125,7 +211,15 @@ class LoginScreen extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 16),
-                  PrimaryBtn(label: 'Log In', onTap: () {}),
+
+                  // Tombol dengan loading state
+                  isLoading
+                      ? const Center(
+                          child: CircularProgressIndicator(
+                            color: FindUsColors.primaryDark,
+                          ),
+                        )
+                      : PrimaryBtn(label: 'Log In', onTap: login),
 
                   const SizedBox(height: 32),
 
@@ -190,7 +284,7 @@ class LoginScreen extends StatelessWidget {
 }
 
 // ═══════════════════════════════════════════════════════════════
-// SHARED WIDGETS (Bisa dipakai juga di signup.dart)
+// SHARED WIDGETS
 // ═══════════════════════════════════════════════════════════════
 
 class HeaderWaveClipper extends CustomClipper<Path> {
@@ -255,16 +349,20 @@ class AuthField extends StatelessWidget {
   final IconData icon;
   final String label;
   final bool isPassword;
+  final TextEditingController? controller;
+
   const AuthField({
     super.key,
     required this.icon,
     required this.label,
     this.isPassword = false,
+    this.controller,
   });
 
   @override
   Widget build(BuildContext context) {
     return TextField(
+      controller: controller,
       obscureText: isPassword,
       decoration: InputDecoration(
         hintText: label,
